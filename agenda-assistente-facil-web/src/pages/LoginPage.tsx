@@ -13,7 +13,7 @@ export function LoginPage({ onLogin }: Props) {
   const [role, setRole] = useState<UserRole>("customer");
   const [error, setError] = useState("");
   const [selectedProvider, setSelectedProvider] = useState<string>("");
-  const [providers, setProviders] = useState<{ id: string; name: string }[]>([]);
+  const [providers, setProviders] = useState<{ id: string; name: string; specialty?: string }[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(false);
 
   async function loadProviders() {
@@ -45,71 +45,90 @@ export function LoginPage({ onLogin }: Props) {
   }
 
   return (
-    <section className="card">
-      <h2>Entrar</h2>
-      <form onSubmit={handleSubmit} className="form">
-        <label>
-          Perfil
-          <select 
-            value={role} 
-            onChange={(e) => {
-              setRole(e.target.value as UserRole);
-              if (e.target.value === "customer") {
-                loadProviders();
-              }
-            }}
-          >
-            <option value="customer">Paciente</option>
-            <option value="provider">Profissional</option>
-          </select>
-        </label>
+    <div className="container">
+      <section className="card">
+        <div className="card-header">
+          <h2 className="card-title">Bem-vindo à Agenda Assistente Fácil</h2>
+          <p className="card-subtitle">Faça login para continuar</p>
+        </div>
         
-        {role === "customer" && (
-          <label>
-            Selecionar Profissional
+        <form onSubmit={handleSubmit} className="form">
+          <div className="form-group">
+            <label htmlFor="role">Perfil de Acesso</label>
             <select 
-              value={selectedProvider} 
-              onChange={(e) => setSelectedProvider(e.target.value)}
-              disabled={loadingProviders}
+              id="role"
+              value={role} 
+              onChange={(e) => {
+                setRole(e.target.value as UserRole);
+                if (e.target.value === "customer") {
+                  loadProviders();
+                }
+              }}
             >
-              {loadingProviders ? (
-                <option>Carregando...</option>
-              ) : (
-                providers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))
-              )}
+              <option value="customer">👤 Paciente</option>
+              <option value="provider">🩺 Profissional</option>
             </select>
-          </label>
-        )}
+          </div>
+          
+          {role === "customer" && (
+            <div className="form-group">
+              <label htmlFor="provider">Selecionar Profissional</label>
+              <select 
+                id="provider"
+                value={selectedProvider} 
+                onChange={(e) => setSelectedProvider(e.target.value)}
+                disabled={loadingProviders}
+              >
+                {loadingProviders ? (
+                  <option>Carregando...</option>
+                ) : (
+                  providers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {p.specialty ? `— ${p.specialty}` : ''}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+          )}
+          
+          <div className="form-group">
+            <label htmlFor="email">E-mail</label>
+            <input 
+              id="email"
+              type="email"
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)} 
+              placeholder="seu@email.com"
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="password">Senha</label>
+            <input 
+              id="password"
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              placeholder="••••••••"
+              required
+            />
+          </div>
+          
+          <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '8px' }}>
+            Entrar
+          </button>
+        </form>
         
-        <label>
-          E-mail
-          <input 
-            type="email"
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
-            placeholder="seu@email.com"
-          />
-        </label>
-        <label>
-          Senha
-          <input 
-            type="password" 
-            value={password} 
-            onChange={(e) => setPassword(e.target.value)} 
-            placeholder="******"
-          />
-        </label>
-        <button type="submit">Acessar</button>
-      </form>
-      {error ? <p className="error">{error}</p> : null}
-      
-      <div style={{ marginTop: "16px", fontSize: "12px", color: "#666" }}>
-        <p><strong>Dica:</strong> Use qualquer e-mail e senha para testar (modo mock).</p>
-      </div>
-    </section>
+        {error && <div className="error" style={{ marginTop: '1rem' }}>{error}</div>}
+        
+        <div style={{ marginTop: "24px", padding: "16px", background: "#f0f9ff", borderRadius: "12px", border: "1px solid #bae6fd" }}>
+          <p style={{ fontSize: "13px", color: "#0369a1", margin: 0 }}>
+            💡 <strong>Dica:</strong> Use qualquer e-mail e senha para testar (modo mock).
+          </p>
+        </div>
+      </section>
+    </div>
   );
 }

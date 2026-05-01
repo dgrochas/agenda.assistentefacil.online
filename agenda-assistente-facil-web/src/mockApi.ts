@@ -133,11 +133,11 @@ export async function mockRescheduleAppointment(
   return mockAppointments[index];
 }
 
-export async function mockGetProviders(): Promise<{ id: string; name: string; email: string }[]> {
+export async function mockGetProviders(): Promise<{ id: string; name: string; email: string; specialty?: string }[]> {
   await delay(200);
   return [
-    { id: "prof-1", name: "Dr. Silva", email: "dr.silva@exemplo.com" },
-    { id: "prof-2", name: "Dra. Santos", email: "dra.santos@exemplo.com" },
-    { id: "prof-3", name: "Dr. Oliveira", email: "dr.oliveira@exemplo.com" },
+    { id: "prof-1", name: "Dr. Silva", email: "dr.silva@exemplo.com", specialty: "Cardiologia" },
+    { id: "prof-2", name: "Dra. Santos", email: "dra.santos@exemplo.com", specialty: "Dermatologia" },
+    { id: "prof-3", name: "Dr. Oliveira", email: "dr.oliveira@exemplo.com", specialty: "Ortopedia" },
   ];
 }
