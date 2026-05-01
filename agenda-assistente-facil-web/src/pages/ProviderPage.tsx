@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Calendar, dateFnsLocalizer, View, SlotInfo } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay } from "date-fns";
+import { format, parse, startOfWeek, getDay, addMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 import { 
@@ -57,6 +57,11 @@ export function ProviderPage({ token, onLogout }: Props) {
   const [patientEmail, setPatientEmail] = useState("");
   const [appointmentTitle, setAppointmentTitle] = useState("");
   const [appointmentDescription, setAppointmentDescription] = useState("");
+  
+  // Estados para edição de data e hora no modal
+  const [modalStartDate, setModalStartDate] = useState<string>("");
+  const [modalStartTime, setModalStartTime] = useState<string>("");
+  const [modalEndTime, setModalEndTime] = useState<string>("");
 
   async function loadAppointments() {
     const now = new Date();
@@ -137,13 +142,17 @@ export function ProviderPage({ token, onLogout }: Props) {
   }
   
   async function handleCreateAppointment() {
-    if (!selectedSlot) return;
+    if (!selectedSlot || !modalStartDate || !modalStartTime || !modalEndTime) return;
+    
+    // Criar datas baseadas nos campos separados
+    const startDateTime = new Date(`${modalStartDate}T${modalStartTime}`);
+    const endDateTime = new Date(`${modalStartDate}T${modalEndTime}`);
     
     try {
       if (createMode === "block") {
         await createPersonalBlock(token, {
-          start_time: selectedSlot.start.toISOString(),
-          end_time: selectedSlot.end.toISOString(),
+          start_time: startDateTime.toISOString(),
+          end_time: endDateTime.toISOString(),
           title: appointmentTitle || "Bloqueio Pessoal",
           description: appointmentDescription,
         });
@@ -156,6 +165,7 @@ export function ProviderPage({ token, onLogout }: Props) {
       setSelectedSlot(null);
       setAppointmentTitle("");
       setAppointmentDescription("");
+      setPatientEmail("");
       setMessage(createMode === "block" ? "Bloqueio criado com sucesso!" : "Agendamento criado com sucesso!");
       loadAppointments();
     } catch (err) {
@@ -219,11 +229,24 @@ export function ProviderPage({ token, onLogout }: Props) {
   }
 
   function handleSelectSlot(slotInfo: SlotInfo) {
-    setSelectedSlot({ start: slotInfo.start, end: slotInfo.end });
+    const start = slotInfo.start;
+    const end = slotInfo.end;
+    
+    setSelectedSlot({ start, end });
     setShowCreateModal(true);
     setCreateMode("block");
     setAppointmentTitle("");
     setAppointmentDescription("");
+    setPatientEmail("");
+    
+    // Preencher os campos de data e hora separadamente
+    const startDateStr = start.toISOString().split('T')[0];
+    const startTimeStr = start.toTimeString().slice(0, 5);
+    const endTimeStr = end.toTimeString().slice(0, 5);
+    
+    setModalStartDate(startDateStr);
+    setModalStartTime(startTimeStr);
+    setModalEndTime(endTimeStr);
   }
 
   function handleSelectEvent(event: any) {
@@ -327,40 +350,10 @@ export function ProviderPage({ token, onLogout }: Props) {
       
       <section className="card">
         <h2>📅 Calendário de Agendamentos</h2>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px" }}>
-          <p style={{ margin: 0, fontSize: "14px", color: "#666" }}>
-            Selecione um horário no calendário para criar um evento
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedSlot({
-                start: new Date(),
-                end: new Date(new Date().getTime() + 60 * 60 * 1000),
-              });
-              setShowCreateModal(true);
-              setCreateMode("block");
-              setAppointmentTitle("");
-              setAppointmentDescription("");
-            }}
-            style={{
-              background: "#2563eb",
-              color: "white",
-              border: "none",
-              padding: "10px 20px",
-              borderRadius: "6px",
-              cursor: "pointer",
-              fontWeight: "bold",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <span>+</span>
-            <span>Criar Evento</span>
-          </button>
-        </div>
-        <div style={{ height: "600px", marginTop: "12px" }}>
+        <p style={{ margin: "12px 0", fontSize: "14px", color: "#666" }}>
+          Selecione um período no calendário para criar um evento (bloqueio ou agendamento)
+        </p>
+        <div style={{ height: "600px" }}>
           <Calendar
             localizer={localizer}
             events={calendarEvents}
@@ -527,15 +520,59 @@ export function ProviderPage({ token, onLogout }: Props) {
               {createMode === "block" ? "🔒 Criar Bloqueio Pessoal" : "📅 Agendar para Paciente"}
             </h3>
             
-            <div style={{ marginBottom: "16px" }}>
-              <p style={{ margin: "0 0 8px 0", fontSize: "14px", color: "#666" }}>
-                Horário selecionado:
-              </p>
-              <p style={{ margin: 0, fontWeight: "bold" }}>
-                {selectedSlot.start.toLocaleDateString()} das {" "}
-                {selectedSlot.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {" "}
-                às {selectedSlot.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </p>
+            {/* Campos de Data e Hora Separados */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+              <div>
+                <label style={{ display: "block", marginBottom: "4px", fontWeight: "bold", fontSize: "13px" }}>
+                  Data:
+                </label>
+                <input
+                  type="date"
+                  value={modalStartDate}
+                  onChange={(e) => setModalStartDate(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: "4px", fontWeight: "bold", fontSize: "13px" }}>
+                  Hora Início:
+                </label>
+                <input
+                  type="time"
+                  value={modalStartTime}
+                  onChange={(e) => setModalStartTime(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: "4px", fontWeight: "bold", fontSize: "13px" }}>
+                  Hora Fim:
+                </label>
+                <input
+                  type="time"
+                  value={modalEndTime}
+                  onChange={(e) => setModalEndTime(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                  }}
+                />
+              </div>
             </div>
             
             <div style={{ marginBottom: "16px" }}>
@@ -645,6 +682,9 @@ export function ProviderPage({ token, onLogout }: Props) {
                   setAppointmentTitle("");
                   setAppointmentDescription("");
                   setPatientEmail("");
+                  setModalStartDate("");
+                  setModalStartTime("");
+                  setModalEndTime("");
                 }}
                 style={{
                   padding: "10px 20px",
