@@ -1,4 +1,33 @@
-# Documentation files
-DOCUMENTACAO_COMPLETA.md
-GUIA_IMPLEMENTACAO_CALENDLY.md
-INDICE.md
+```
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+build/
+*.js
+*.css
+*.html
+
+# Development
+.env
+.env.local
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+
+# Package lock
+package-lock.json
+
+# TypeScript
+*.tsbuildinfo
+```

@@ -1,8 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { Calendar, dateFnsLocalizer, View, SlotInfo } from "react-big-calendar";
+import { format, parse, startOfWeek, getDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 import { getProviderAppointments, saveAgendaConfig } from "../api";
 import { Layout } from "../components/Layout";
 import type { Appointment } from "../types";
+
+import "react-big-calendar/lib/css/react-big-calendar.css";
+
+const locales = {
+  "pt-BR": ptBR,
+};
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+});
 
 type Props = {
   token: string;
@@ -16,6 +33,7 @@ export function ProviderPage({ token, onLogout }: Props) {
   const [slotDuration, setSlotDuration] = useState(30);
   const [bufferTime, setBufferTime] = useState(10);
   const [cancellationDeadline, setCancellationDeadline] = useState(24);
+  const [currentView, setCurrentView] = useState<View>("month");
 
   async function loadAppointments() {
     const now = new Date();
@@ -76,6 +94,49 @@ export function ProviderPage({ token, onLogout }: Props) {
 
   const scheduledAppointments = appointments.filter(a => a.status === "scheduled");
   const otherAppointments = appointments.filter(a => a.status !== "scheduled");
+
+  // Transformar agendamentos em eventos para o calendário
+  const calendarEvents = useMemo(() => {
+    return appointments.map((a) => ({
+      id: a.id,
+      title: `Paciente: ${a.patient_id}`,
+      start: new Date(a.start_time),
+      end: new Date(a.end_time),
+      status: a.status,
+      resource: a,
+    }));
+  }, [appointments]);
+
+  // Customizar estilo do evento baseado no status
+  function getEventStyle(event: { status: string }) {
+    const colors: Record<string, string> = {
+      scheduled: "#2563eb",
+      canceled: "#dc2626",
+      completed: "#16a34a",
+    };
+    return {
+      backgroundColor: colors[event.status] || "#6b7280",
+      borderColor: colors[event.status] || "#6b7280",
+      color: "white",
+      padding: "2px 4px",
+      borderRadius: "4px",
+      fontSize: "12px",
+    };
+  }
+
+  function handleSelectSlot(slotInfo: SlotInfo) {
+    alert(`Selecionado: ${slotInfo.start.toLocaleString()} até ${slotInfo.end.toLocaleString()}`);
+    // Futuro: abrir modal para criar novo agendamento
+  }
+
+  function handleSelectEvent(event: any) {
+    const appointment = event.resource as Appointment;
+    const statusLabel = getStatusLabel(appointment.status);
+    alert(
+      `Agendamento\n${new Date(appointment.start_time).toLocaleString()}\nStatus: ${statusLabel}\nPaciente: ${appointment.patient_id}`
+    );
+    // Futuro: abrir modal com detalhes do agendamento
+  }
 
   return (
     <Layout title="Painel do Profissional" onLogout={onLogout}>
@@ -168,7 +229,65 @@ export function ProviderPage({ token, onLogout }: Props) {
       </section>
       
       <section className="card">
-        <h2>Próximos Agendamentos ({scheduledAppointments.length})</h2>
+        <h2>📅 Calendário de Agendamentos</h2>
+        <div style={{ height: "600px", marginTop: "12px" }}>
+          <Calendar
+            localizer={localizer}
+            events={calendarEvents}
+            startAccessor="start"
+            endAccessor="end"
+            view={currentView}
+            onView={(view) => setCurrentView(view)}
+            style={{ height: "100%" }}
+            culture="pt-BR"
+            step={30}
+            timeslots={2}
+            defaultView="month"
+            views={["month", "week", "day", "agenda"]}
+            eventPropGetter={(event) => ({
+              style: getEventStyle(event),
+            })}
+            onSelectSlot={handleSelectSlot}
+            onSelectEvent={handleSelectEvent}
+            selectable
+            messages={{
+              date: "Data",
+              time: "Hora",
+              event: "Evento",
+              allDay: "Dia inteiro",
+              week: "Semana",
+              work_week: "Semana útil",
+              day: "Dia",
+              month: "Mês",
+              previous: "Anterior",
+              next: "Próximo",
+              yesterday: "Ontem",
+              tomorrow: "Amanhã",
+              today: "Hoje",
+              agenda: "Agenda",
+              noEventsInRange: "Nenhum agendamento neste período.",
+              showMore: (total: number) => `+${total} mais`,
+            }}
+          />
+        </div>
+        <div style={{ display: "flex", gap: "16px", marginTop: "12px", fontSize: "13px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <div style={{ width: "16px", height: "16px", background: "#2563eb", borderRadius: "4px" }} />
+            <span>Agendado</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <div style={{ width: "16px", height: "16px", background: "#dc2626", borderRadius: "4px" }} />
+            <span>Cancelado</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <div style={{ width: "16px", height: "16px", background: "#16a34a", borderRadius: "4px" }} />
+            <span>Realizado</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="card">
+        <h2>📋 Lista de Próximos Agendamentos ({scheduledAppointments.length})</h2>
         
         {scheduledAppointments.length === 0 ? (
           <p style={{ color: "#666", fontStyle: "italic" }}>Nenhum agendamento futuro.</p>
