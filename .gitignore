@@ -1,5 +1,57 @@
-(doc_review.md is just a markdown document, no build artifacts, dependencies, or temp files in the changes - so no ignores needed)
+```
+# Dependencies
+node_modules/
 
-```gitignore
+# Environment
+.env
+.env.local
+.env.*
 
+# Logs
+*.log
+
+# Build artifacts
+dist/
+build/
+target/
+
+# Cache
+.cache/
+.node_cache/
+.npm/
+.yarn/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Compressed
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 ```

@@ -21,6 +21,7 @@ export function CustomerPage({ token, onLogout }: Props) {
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [reschedulingId, setReschedulingId] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{ start: string; end: string } | null>(null);
+  const [bookingStep, setBookingStep] = useState<"select-date" | "select-time" | "confirm">("select-date");
 
   useEffect(() => {
     loadProviders();
@@ -54,9 +55,13 @@ export function CustomerPage({ token, onLogout }: Props) {
     setLoadingSlots(true);
     setError("");
     setSelectedSlot(null);
+    setBookingStep("select-time");
     try {
       const slots = await getAvailableSlots(selectedProvider, selectedDate);
       setAvailableSlots(slots);
+      if (slots.length > 0) {
+        setBookingStep("select-time");
+      }
     } catch (err) {
       setError("Falha ao carregar horários disponíveis.");
       setAvailableSlots([]);
@@ -82,6 +87,7 @@ export function CustomerPage({ token, onLogout }: Props) {
       setShowBookingForm(false);
       setAvailableSlots([]);
       setSelectedSlot(null);
+      setBookingStep("select-date");
       loadAppointments();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao agendar.");
@@ -106,6 +112,7 @@ export function CustomerPage({ token, onLogout }: Props) {
     setSelectedProvider(appointment.professional_id);
     setShowBookingForm(true);
     setSelectedSlot(null);
+    setBookingStep("select-date");
     setTimeout(() => handleLoadSlots(), 100);
   }
 
@@ -123,6 +130,7 @@ export function CustomerPage({ token, onLogout }: Props) {
       setShowBookingForm(false);
       setAvailableSlots([]);
       setSelectedSlot(null);
+      setBookingStep("select-date");
       loadAppointments();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao reagendar.");
@@ -150,6 +158,13 @@ export function CustomerPage({ token, onLogout }: Props) {
   const upcomingAppointments = appointments.filter(a => a.status === "scheduled");
   const pastAppointments = appointments.filter(a => a.status !== "scheduled");
 
+  // Gerar próximos 7 dias para seleção rápida
+  const nextDays = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() + i);
+    return date.toISOString().split('T')[0];
+  });
+
   return (
     <Layout title="Área do Paciente" onLogout={onLogout}>
       {message && (
@@ -160,6 +175,7 @@ export function CustomerPage({ token, onLogout }: Props) {
         <div className="error">{error}</div>
       )}
       
+      {/* Seção de Agendamento - Estilo Calendly */}
       <section className="card">
         <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
           <div>
@@ -173,69 +189,150 @@ export function CustomerPage({ token, onLogout }: Props) {
               if (showBookingForm) {
                 setAvailableSlots([]);
                 setSelectedSlot(null);
+                setBookingStep("select-date");
               }
             }}
             className="btn-primary"
+            style={{ fontSize: "1rem", padding: "0.875rem 1.5rem" }}
           >
             {showBookingForm ? "Cancelar" : "+ Novo Agendamento"}
           </button>
         </div>
         
         {showBookingForm && (
-          <div className="form">
-            <div className="form-group">
-              <label htmlFor="provider-select">Profissional</label>
-              <select 
-                id="provider-select"
-                value={selectedProvider} 
-                onChange={(e) => setSelectedProvider(e.target.value)}
-              >
-                {providers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} {p.specialty ? `— ${p.specialty}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="date-select">Data</label>
-              <input 
-                id="date-select"
-                type="date" 
-                value={selectedDate} 
-                onChange={(e) => setSelectedDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-              />
-            </div>
-            
-            <button 
-              type="button" 
-              onClick={handleLoadSlots}
-              disabled={!selectedProvider || !selectedDate || loadingSlots}
-              className="btn-secondary"
-              style={{ width: '100%' }}
-            >
-              {loadingSlots ? (
-                <>
-                  <span className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', marginRight: '8px' }}></span>
-                  Carregando...
-                </>
-              ) : "Ver Horários Disponíveis"}
-            </button>
-            
-            {availableSlots.length > 0 && (
-              <div style={{ marginTop: "1rem" }}>
-                <label style={{ marginBottom: "0.75rem", display: "block" }}>
-                  {reschedulingId ? "Selecione um novo horário:" : "Selecione um horário disponível:"}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "2rem", marginTop: "1.5rem" }}>
+            {/* Coluna da Esquerda - Seleção de Profissional e Data */}
+            <div>
+              <div className="form-group" style={{ marginBottom: "1.5rem" }}>
+                <label htmlFor="provider-select" style={{ fontSize: "0.9375rem", fontWeight: "600", color: "#1e293b", marginBottom: "0.5rem", display: "block" }}>
+                  👨‍⚕️ Profissional
                 </label>
-                <div className="slots-grid">
+                <select 
+                  id="provider-select"
+                  value={selectedProvider} 
+                  onChange={(e) => {
+                    setSelectedProvider(e.target.value);
+                    setAvailableSlots([]);
+                    setSelectedSlot(null);
+                  }}
+                  style={{ fontSize: "0.9375rem", padding: "0.875rem 1rem" }}
+                >
+                  {providers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {p.specialty ? `— ${p.specialty}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: "1.5rem" }}>
+                <label style={{ fontSize: "0.9375rem", fontWeight: "600", color: "#1e293b", marginBottom: "0.75rem", display: "block" }}>
+                  📅 Selecione uma Data
+                </label>
+                
+                {/* Quick Select - Próximos 7 dias */}
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+                  {nextDays.map((date, index) => {
+                    const dateObj = new Date(date + 'T00:00:00');
+                    const dayName = dateObj.toLocaleDateString('pt-BR', { weekday: 'short' });
+                    const dayNumber = dateObj.getDate();
+                    const month = dateObj.toLocaleDateString('pt-BR', { month: 'short' });
+                    const isToday = index === 0;
+                    
+                    return (
+                      <button
+                        key={date}
+                        type="button"
+                        onClick={() => {
+                          setSelectedDate(date);
+                          setAvailableSlots([]);
+                          setSelectedSlot(null);
+                        }}
+                        className={`slot-button ${selectedDate === date ? 'selected' : ''}`}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          padding: "0.75rem 1rem",
+                          minWidth: "70px",
+                          border: selectedDate === date ? "2px solid #0ea5e9" : "1px solid #e2e8f0",
+                        }}
+                      >
+                        <span style={{ fontSize: "0.75rem", color: selectedDate === date ? "#0ea5e9" : "#64748b", textTransform: "uppercase" }}>
+                          {isToday ? 'Hoje' : dayName}
+                        </span>
+                        <span style={{ fontSize: "1.25rem", fontWeight: "700", color: selectedDate === date ? "#0ea5e9" : "#1e293b" }}>
+                          {dayNumber}
+                        </span>
+                        <span style={{ fontSize: "0.75rem", color: selectedDate === date ? "#0ea5e9" : "#64748b" }}>
+                          {month}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Date Input tradicional */}
+                <div className="form-group">
+                  <label htmlFor="date-select" style={{ fontSize: "0.875rem", color: "#64748b" }}>Ou escolha outra data:</label>
+                  <input 
+                    id="date-select"
+                    type="date" 
+                    value={selectedDate} 
+                    onChange={(e) => {
+                      setSelectedDate(e.target.value);
+                      setAvailableSlots([]);
+                      setSelectedSlot(null);
+                    }}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="button" 
+                onClick={handleLoadSlots}
+                disabled={!selectedProvider || !selectedDate || loadingSlots}
+                className="btn-secondary"
+                style={{ width: '100%', padding: "0.875rem 1.5rem", fontSize: "0.9375rem", fontWeight: "600" }}
+              >
+                {loadingSlots ? (
+                  <>
+                    <span className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px', marginRight: '8px' }}></span>
+                    Carregando horários...
+                  </>
+                ) : "Ver Horários Disponíveis →"}
+              </button>
+            </div>
+
+            {/* Coluna da Direita - Grid de Horários */}
+            {availableSlots.length > 0 && (
+              <div style={{ background: "#f8fafc", borderRadius: "12px", padding: "1.5rem", border: "1px solid #e2e8f0" }}>
+                <div style={{ marginBottom: "1rem" }}>
+                  <h4 style={{ fontSize: "1rem", fontWeight: "600", color: "#1e293b", marginBottom: "0.25rem" }}>
+                    ⏰ Horários Disponíveis
+                  </h4>
+                  <p style={{ fontSize: "0.875rem", color: "#64748b" }}>
+                    {new Date(selectedDate).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  </p>
+                </div>
+
+                <div className="slots-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: "0.5rem" }}>
                   {availableSlots.map((slot, index) => (
                     <button
                       key={index}
                       type="button"
-                      onClick={() => setSelectedSlot(slot)}
+                      onClick={() => {
+                        setSelectedSlot(slot);
+                        setBookingStep("confirm");
+                      }}
                       className={`slot-button ${selectedSlot?.start === slot.start ? 'selected' : ''}`}
+                      style={{
+                        padding: "0.875rem 0.5rem",
+                        fontSize: "0.875rem",
+                        fontWeight: "600",
+                        transition: "all 0.2s ease",
+                      }}
                     >
                       {slot.start}
                     </button>
@@ -243,22 +340,34 @@ export function CustomerPage({ token, onLogout }: Props) {
                 </div>
                 
                 {selectedSlot && (
-                  <button
-                    type="button"
-                    onClick={() => reschedulingId ? handleConfirmReschedule(selectedSlot) : handleBookSlot(selectedSlot)}
-                    className="btn-primary"
-                    style={{ width: '100%', marginTop: '1rem' }}
-                  >
-                    {reschedulingId ? "Confirmar Reagendamento" : "Confirmar Agendamento"}
-                  </button>
+                  <div style={{ marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px solid #e2e8f0" }}>
+                    <div style={{ background: "#ecfdf5", padding: "1rem", borderRadius: "8px", marginBottom: "1rem", border: "1px solid #a7f3d0" }}>
+                      <p style={{ fontSize: "0.875rem", color: "#059669", margin: 0 }}>
+                        ✅ Horário selecionado: <strong>{selectedSlot.start} - {selectedSlot.end}</strong>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => reschedulingId ? handleConfirmReschedule(selectedSlot) : handleBookSlot(selectedSlot)}
+                      className="btn-primary"
+                      style={{ width: '100%', padding: "1rem", fontSize: "1rem", fontWeight: "600" }}
+                    >
+                      {reschedulingId ? "🔄 Confirmar Reagendamento" : "✅ Confirmar Agendamento"}
+                    </button>
+                  </div>
                 )}
               </div>
             )}
             
             {availableSlots.length === 0 && !loadingSlots && selectedDate && (
-              <p style={{ color: "#64748b", fontStyle: "italic", textAlign: "center", padding: "1rem" }}>
-                Nenhum horário disponível para esta data.
-              </p>
+              <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "3rem", background: "#f8fafc", borderRadius: "12px" }}>
+                <p style={{ fontSize: "1.125rem", color: "#64748b", marginBottom: "0.5rem" }}>
+                  😕 Nenhum horário disponível para esta data
+                </p>
+                <p style={{ fontSize: "0.875rem", color: "#94a3b8" }}>
+                  Tente selecionar outro dia ou profissional
+                </p>
+              </div>
             )}
           </div>
         )}
