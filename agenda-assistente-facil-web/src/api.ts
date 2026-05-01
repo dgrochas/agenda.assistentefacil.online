@@ -1,4 +1,4 @@
-import type { Appointment, UserRole } from "./types";
+import type { Appointment, UserRole, EventType } from "./types";
 import {
   mockLogin,
   mockGetMyAppointments,
@@ -83,6 +83,9 @@ export async function createAppointment(
     professional_id: string;
     start_time: string;
     end_time: string;
+    patient_id?: string;
+    title?: string;
+    description?: string;
   }
 ) {
   if (USE_MOCK) {
@@ -91,6 +94,84 @@ export async function createAppointment(
   return apiFetch<Appointment>("/appointments", token, {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function createPersonalBlock(
+  token: string,
+  payload: {
+    start_time: string;
+    end_time: string;
+    title?: string;
+    description?: string;
+  }
+) {
+  return apiFetch<Appointment>("/appointments/personal-block", token, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function createAppointmentForPatient(
+  token: string,
+  payload: {
+    start_time: string;
+    end_time: string;
+    patient_id: string;
+    title?: string;
+    description?: string;
+  }
+) {
+  return apiFetch<Appointment>("/appointments/for-patient", token, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// Event Types API
+export async function getEventTypes(token: string) {
+  return apiFetch<EventType[]>("/appointments/event-types", token);
+}
+
+export async function getActiveEventTypes(token: string) {
+  return apiFetch<EventType[]>("/appointments/event-types/active", token);
+}
+
+export async function createEventType(
+  token: string,
+  payload: {
+    title: string;
+    description?: string;
+    duration_minutes: number;
+    color?: string;
+  }
+) {
+  return apiFetch<EventType>("/appointments/event-types", token, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateEventType(
+  token: string,
+  eventTypeId: string,
+  payload: {
+    title?: string;
+    description?: string;
+    duration_minutes?: number;
+    color?: string;
+    is_active?: boolean;
+  }
+) {
+  return apiFetch<EventType>(`/appointments/event-types/${eventTypeId}`, token, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteEventType(token: string, eventTypeId: string) {
+  return apiFetch<void>(`/appointments/event-types/${eventTypeId}`, token, {
+    method: "DELETE",
   });
 }
 

@@ -3,9 +3,17 @@ import { Calendar, dateFnsLocalizer, View, SlotInfo } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-import { getProviderAppointments, saveAgendaConfig } from "../api";
+import { 
+  getProviderAppointments, 
+  saveAgendaConfig,
+  createPersonalBlock,
+  createAppointmentForPatient,
+  getEventTypes,
+  createEventType,
+  deleteEventType,
+} from "../api";
 import { Layout } from "../components/Layout";
-import type { Appointment } from "../types";
+import type { Appointment, EventType } from "../types";
 
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
@@ -34,6 +42,21 @@ export function ProviderPage({ token, onLogout }: Props) {
   const [bufferTime, setBufferTime] = useState(10);
   const [cancellationDeadline, setCancellationDeadline] = useState(24);
   const [currentView, setCurrentView] = useState<View>("month");
+  
+  // Estados para tipos de evento
+  const [eventTypes, setEventTypes] = useState<EventType[]>([]);
+  const [showNewEventTypeModal, setShowNewEventTypeModal] = useState(false);
+  const [newEventTypeTitle, setNewEventTypeTitle] = useState("");
+  const [newEventTypeDuration, setNewEventTypeDuration] = useState(30);
+  const [newEventTypeColor, setNewEventTypeColor] = useState("#2563eb");
+  
+  // Estados para criar agendamento/bloqueio
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null);
+  const [createMode, setCreateMode] = useState<"patient" | "block">("patient");
+  const [patientEmail, setPatientEmail] = useState("");
+  const [appointmentTitle, setAppointmentTitle] = useState("");
+  const [appointmentDescription, setAppointmentDescription] = useState("");
 
   async function loadAppointments() {
     const now = new Date();
@@ -44,6 +67,15 @@ export function ProviderPage({ token, onLogout }: Props) {
       setAppointments(data);
     } catch (err) {
       setMessage("Falha ao carregar agendamentos.");
+    }
+  }
+  
+  async function loadEventTypes() {
+    try {
+      const data = await getEventTypes(token);
+      setEventTypes(data);
+    } catch (err) {
+      console.error("Falha ao carregar tipos de evento");
     }
   }
 
@@ -69,9 +101,71 @@ export function ProviderPage({ token, onLogout }: Props) {
       setMessage(err instanceof Error ? err.message : "Falha ao salvar configuração.");
     }
   }
+  
+  async function handleCreateEventType() {
+    if (!newEventTypeTitle.trim()) {
+      alert("Digite um título para o tipo de evento");
+      return;
+    }
+    try {
+      const created = await createEventType(token, {
+        title: newEventTypeTitle,
+        duration_minutes: newEventTypeDuration,
+        color: newEventTypeColor,
+      });
+      setEventTypes([...eventTypes, created]);
+      setShowNewEventTypeModal(false);
+      setNewEventTypeTitle("");
+      setNewEventTypeDuration(30);
+      setMessage("Tipo de evento criado com sucesso!");
+    } catch (err) {
+      setMessage("Falha ao criar tipo de evento.");
+    }
+  }
+  
+  async function handleDeleteEventType(id: string) {
+    if (!confirm("Tem certeza que deseja excluir este tipo de evento?")) {
+      return;
+    }
+    try {
+      await deleteEventType(token, id);
+      setEventTypes(eventTypes.filter(et => et.id !== id));
+      setMessage("Tipo de evento excluído com sucesso!");
+    } catch (err) {
+      setMessage("Falha ao excluir tipo de evento.");
+    }
+  }
+  
+  async function handleCreateAppointment() {
+    if (!selectedSlot) return;
+    
+    try {
+      if (createMode === "block") {
+        await createPersonalBlock(token, {
+          start_time: selectedSlot.start.toISOString(),
+          end_time: selectedSlot.end.toISOString(),
+          title: appointmentTitle || "Bloqueio Pessoal",
+          description: appointmentDescription,
+        });
+      } else {
+        // Em produção, buscaria o ID do paciente pelo email
+        alert("Funcionalidade de agendar para paciente requer busca de pacientes por email. Implementação futura.");
+        return;
+      }
+      setShowCreateModal(false);
+      setSelectedSlot(null);
+      setAppointmentTitle("");
+      setAppointmentDescription("");
+      setMessage(createMode === "block" ? "Bloqueio criado com sucesso!" : "Agendamento criado com sucesso!");
+      loadAppointments();
+    } catch (err) {
+      setMessage("Falha ao criar agendamento.");
+    }
+  }
 
   useEffect(() => {
     loadAppointments().catch(() => setMessage("Falha ao carregar agendamentos."));
+    loadEventTypes().catch(() => console.error("Falha ao carregar tipos de evento"));
   }, []);
 
   function getStatusLabel(status: string) {
@@ -125,17 +219,20 @@ export function ProviderPage({ token, onLogout }: Props) {
   }
 
   function handleSelectSlot(slotInfo: SlotInfo) {
-    alert(`Selecionado: ${slotInfo.start.toLocaleString()} até ${slotInfo.end.toLocaleString()}`);
-    // Futuro: abrir modal para criar novo agendamento
+    setSelectedSlot({ start: slotInfo.start, end: slotInfo.end });
+    setShowCreateModal(true);
+    setCreateMode("block");
+    setAppointmentTitle("");
+    setAppointmentDescription("");
   }
 
   function handleSelectEvent(event: any) {
     const appointment = event.resource as Appointment;
     const statusLabel = getStatusLabel(appointment.status);
+    const typeLabel = appointment.appointment_type === "personal_block" ? "Bloqueio Pessoal" : "Consulta";
     alert(
-      `Agendamento\n${new Date(appointment.start_time).toLocaleString()}\nStatus: ${statusLabel}\nPaciente: ${appointment.patient_id}`
+      `${typeLabel}\n${new Date(appointment.start_time).toLocaleString()}\nStatus: ${statusLabel}\n${appointment.title ? `Título: ${appointment.title}` : ""}`
     );
-    // Futuro: abrir modal com detalhes do agendamento
   }
 
   return (
