@@ -16,10 +16,11 @@ export function CustomerPage({ token, onLogout }: Props) {
   const [selectedProvider, setSelectedProvider] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [availableSlots, setAvailableSlots] = useState<{ start: string; end: string }[]>([]);
-  const [providers, setProviders] = useState<{ id: string; name: string }[]>([]);
+  const [providers, setProviders] = useState<{ id: string; name: string; specialty?: string }[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [reschedulingId, setReschedulingId] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{ start: string; end: string } | null>(null);
 
   useEffect(() => {
     loadProviders();
@@ -52,6 +53,7 @@ export function CustomerPage({ token, onLogout }: Props) {
     
     setLoadingSlots(true);
     setError("");
+    setSelectedSlot(null);
     try {
       const slots = await getAvailableSlots(selectedProvider, selectedDate);
       setAvailableSlots(slots);
@@ -79,6 +81,7 @@ export function CustomerPage({ token, onLogout }: Props) {
       setMessage("Agendamento realizado com sucesso!");
       setShowBookingForm(false);
       setAvailableSlots([]);
+      setSelectedSlot(null);
       loadAppointments();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao agendar.");
@@ -102,7 +105,8 @@ export function CustomerPage({ token, onLogout }: Props) {
     setSelectedDate(new Date(appointment.start_time).toISOString().split('T')[0]);
     setSelectedProvider(appointment.professional_id);
     setShowBookingForm(true);
-    handleLoadSlots();
+    setSelectedSlot(null);
+    setTimeout(() => handleLoadSlots(), 100);
   }
 
   async function handleConfirmReschedule(slot: { start: string; end: string }) {
@@ -118,6 +122,7 @@ export function CustomerPage({ token, onLogout }: Props) {
       setReschedulingId(null);
       setShowBookingForm(false);
       setAvailableSlots([]);
+      setSelectedSlot(null);
       loadAppointments();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao reagendar.");
@@ -133,217 +138,200 @@ export function CustomerPage({ token, onLogout }: Props) {
     return labels[status] || status;
   }
 
-  function getStatusColor(status: string) {
-    const colors: Record<string, string> = {
-      scheduled: "#2563eb",
-      canceled: "#dc2626",
-      completed: "#16a34a",
+  function getStatusBadgeClass(status: string) {
+    const badges: Record<string, string> = {
+      scheduled: "badge-success",
+      canceled: "badge-danger",
+      completed: "badge-info",
     };
-    return colors[status] || "#6b7280";
+    return badges[status] || "badge-info";
   }
 
   const upcomingAppointments = appointments.filter(a => a.status === "scheduled");
   const pastAppointments = appointments.filter(a => a.status !== "scheduled");
 
   return (
-    <Layout title="Meu Painel de Paciente" onLogout={onLogout}>
+    <Layout title="Área do Paciente" onLogout={onLogout}>
       {message && (
-        <section className="card" style={{ borderLeft: "4px solid #16a34a" }}>
-          <p style={{ margin: 0, color: "#16a34a" }}>{message}</p>
-        </section>
+        <div className="success">{message}</div>
+      )}
+      
+      {error && (
+        <div className="error">{error}</div>
       )}
       
       <section className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2>Novo Agendamento</h2>
+        <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+          <div>
+            <h3 className="card-title">Agendar Nova Consulta</h3>
+            <p className="card-subtitle">Escolha o profissional e o melhor horário para você</p>
+          </div>
           <button 
             type="button" 
-            onClick={() => setShowBookingForm(!showBookingForm)}
-            style={{ background: "#2563eb", color: "white", border: "none", padding: "8px 16px", borderRadius: "6px" }}
+            onClick={() => {
+              setShowBookingForm(!showBookingForm);
+              if (showBookingForm) {
+                setAvailableSlots([]);
+                setSelectedSlot(null);
+              }
+            }}
+            className="btn-primary"
           >
-            {showBookingForm ? "Cancelar" : "+ Agendar Consulta"}
+            {showBookingForm ? "Cancelar" : "+ Novo Agendamento"}
           </button>
         </div>
         
         {showBookingForm && (
-          <div style={{ marginTop: "16px", display: "grid", gap: "12px" }}>
-            <label>
-              Profissional
+          <div className="form">
+            <div className="form-group">
+              <label htmlFor="provider-select">Profissional</label>
               <select 
+                id="provider-select"
                 value={selectedProvider} 
                 onChange={(e) => setSelectedProvider(e.target.value)}
-                style={{ width: "100%", marginTop: "4px" }}
               >
                 {providers.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name}
+                    {p.name} {p.specialty ? `— ${p.specialty}` : ''}
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
             
-            <label>
-              Data
+            <div className="form-group">
+              <label htmlFor="date-select">Data</label>
               <input 
+                id="date-select"
                 type="date" 
                 value={selectedDate} 
                 onChange={(e) => setSelectedDate(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
-                style={{ width: "100%", marginTop: "4px" }}
               />
-            </label>
+            </div>
             
             <button 
               type="button" 
               onClick={handleLoadSlots}
               disabled={!selectedProvider || !selectedDate || loadingSlots}
-              style={{ 
-                background: "#2563eb", 
-                color: "white", 
-                border: "none", 
-                padding: "10px", 
-                borderRadius: "6px",
-                cursor: (!selectedProvider || !selectedDate || loadingSlots) ? "not-allowed" : "pointer",
-                opacity: (!selectedProvider || !selectedDate || loadingSlots) ? 0.6 : 1,
-              }}
+              className="btn-secondary"
+              style={{ width: '100%' }}
             >
-              {loadingSlots ? "Carregando..." : "Ver Horários Disponíveis"}
+              {loadingSlots ? (
+                <>
+                  <span className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', marginRight: '8px' }}></span>
+                  Carregando...
+                </>
+              ) : "Ver Horários Disponíveis"}
             </button>
             
             {availableSlots.length > 0 && (
-              <div style={{ marginTop: "12px" }}>
-                <h3>Horários Disponíveis:</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "8px", marginTop: "8px" }}>
+              <div style={{ marginTop: "1rem" }}>
+                <label style={{ marginBottom: "0.75rem", display: "block" }}>
+                  {reschedulingId ? "Selecione um novo horário:" : "Selecione um horário disponível:"}
+                </label>
+                <div className="slots-grid">
                   {availableSlots.map((slot, index) => (
                     <button
                       key={index}
                       type="button"
-                      onClick={() => reschedulingId ? handleConfirmReschedule(slot) : handleBookSlot(slot)}
-                      style={{
-                        padding: "8px",
-                        border: "1px solid #2563eb",
-                        background: "white",
-                        color: "#2563eb",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                      }}
+                      onClick={() => setSelectedSlot(slot)}
+                      className={`slot-button ${selectedSlot?.start === slot.start ? 'selected' : ''}`}
                     >
                       {slot.start}
                     </button>
                   ))}
                 </div>
+                
+                {selectedSlot && (
+                  <button
+                    type="button"
+                    onClick={() => reschedulingId ? handleConfirmReschedule(selectedSlot) : handleBookSlot(selectedSlot)}
+                    className="btn-primary"
+                    style={{ width: '100%', marginTop: '1rem' }}
+                  >
+                    {reschedulingId ? "Confirmar Reagendamento" : "Confirmar Agendamento"}
+                  </button>
+                )}
               </div>
             )}
             
             {availableSlots.length === 0 && !loadingSlots && selectedDate && (
-              <p style={{ color: "#666", fontStyle: "italic" }}>Nenhum horário disponível para esta data.</p>
+              <p style={{ color: "#64748b", fontStyle: "italic", textAlign: "center", padding: "1rem" }}>
+                Nenhum horário disponível para esta data.
+              </p>
             )}
           </div>
         )}
       </section>
       
       <section className="card">
-        <h2>Próximos Agendamentos</h2>
-        {error ? <p className="error">{error}</p> : null}
+        <div className="card-header">
+          <h3 className="card-title">Próximos Agendamentos</h3>
+          <p className="card-subtitle">Suas consultas futuras</p>
+        </div>
         
         {upcomingAppointments.length === 0 ? (
-          <p style={{ color: "#666", fontStyle: "italic" }}>Você não tem agendamentos futuros.</p>
+          <p style={{ color: "#64748b", fontStyle: "italic", textAlign: "center", padding: "2rem" }}>
+            Você não tem agendamentos futuros.
+          </p>
         ) : (
-          <ul style={{ listStyle: "none", padding: 0 }}>
+          <div className="appointment-list">
             {upcomingAppointments.map((a) => (
-              <li 
-                key={a.id} 
-                style={{ 
-                  padding: "12px", 
-                  borderBottom: "1px solid #e5e7eb",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <strong>{new Date(a.start_time).toLocaleDateString()} às {new Date(a.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
-                  <span style={{ 
-                    marginLeft: "8px", 
-                    padding: "2px 8px", 
-                    borderRadius: "4px", 
-                    background: getStatusColor(a.status), 
-                    color: "white",
-                    fontSize: "12px"
-                  }}>
-                    {getStatusLabel(a.status)}
-                  </span>
+              <div key={a.id} className="appointment-item">
+                <div className="appointment-info">
+                  <div className="appointment-patient">
+                    {new Date(a.start_time).toLocaleDateString('pt-BR')} às {new Date(a.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                  <div className="appointment-date">
+                    <span className={`badge ${getStatusBadgeClass(a.status)}`}>
+                      {getStatusLabel(a.status)}
+                    </span>
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: "8px" }}>
+                <div className="appointment-actions">
                   <button
                     type="button"
                     onClick={() => handleRescheduleRequest(a)}
-                    style={{
-                      padding: "6px 12px",
-                      border: "none",
-                      background: "#f59e0b",
-                      color: "white",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "12px"
-                    }}
+                    className="btn-secondary btn-sm"
                   >
-                    Reagendar
+                    🔄 Reagendar
                   </button>
                   <button
                     type="button"
                     onClick={() => handleCancelAppointment(a.id)}
-                    style={{
-                      padding: "6px 12px",
-                      border: "none",
-                      background: "#dc2626",
-                      color: "white",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      fontSize: "12px"
-                    }}
+                    className="btn-danger btn-sm"
                   >
-                    Cancelar
+                    ✕ Cancelar
                   </button>
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </section>
       
       {pastAppointments.length > 0 && (
         <section className="card">
-          <h2>Histórico</h2>
-          <ul style={{ listStyle: "none", padding: 0 }}>
+          <div className="card-header">
+            <h3 className="card-title">Histórico de Consultas</h3>
+            <p className="card-subtitle">Seus atendimentos passados</p>
+          </div>
+          <div className="appointment-list">
             {pastAppointments.map((a) => (
-              <li 
-                key={a.id} 
-                style={{ 
-                  padding: "12px", 
-                  borderBottom: "1px solid #e5e7eb",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  opacity: 0.7,
-                }}
-              >
-                <div>
-                  <strong>{new Date(a.start_time).toLocaleDateString()} às {new Date(a.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
-                  <span style={{ 
-                    marginLeft: "8px", 
-                    padding: "2px 8px", 
-                    borderRadius: "4px", 
-                    background: getStatusColor(a.status), 
-                    color: "white",
-                    fontSize: "12px"
-                  }}>
-                    {getStatusLabel(a.status)}
-                  </span>
+              <div key={a.id} className="appointment-item" style={{ opacity: 0.7 }}>
+                <div className="appointment-info">
+                  <div className="appointment-patient">
+                    {new Date(a.start_time).toLocaleDateString('pt-BR')} às {new Date(a.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                  <div className="appointment-date">
+                    <span className={`badge ${getStatusBadgeClass(a.status)}`}>
+                      {getStatusLabel(a.status)}
+                    </span>
+                  </div>
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         </section>
       )}
     </Layout>
