@@ -43,6 +43,19 @@ export function ProviderPage({ token, onLogout }: Props) {
   const [cancellationDeadline, setCancellationDeadline] = useState(24);
   const [currentView, setCurrentView] = useState<View>("month");
   
+  // Estados para horário de trabalho
+  const [workDayStart, setWorkDayStart] = useState("08:00");
+  const [workDayEnd, setWorkDayEnd] = useState("18:00");
+  const [workDays, setWorkDays] = useState({
+    mon: true,
+    tue: true,
+    wed: true,
+    thu: true,
+    fri: true,
+    sat: false,
+    sun: false,
+  });
+  
   // Estados para tipos de evento
   const [eventTypes, setEventTypes] = useState<EventType[]>([]);
   const [showNewEventTypeModal, setShowNewEventTypeModal] = useState(false);
@@ -88,17 +101,29 @@ export function ProviderPage({ token, onLogout }: Props) {
     setMessage("");
     setConfigSaved(false);
     try {
+      // Construir horários de trabalho baseados nos dias selecionados
+      const workHours: any = {};
+      const dayMap: Record<string, string> = {
+        mon: 'Segunda',
+        tue: 'Terça',
+        wed: 'Quarta',
+        thu: 'Quinta',
+        fri: 'Sexta',
+        sat: 'Sábado',
+        sun: 'Domingo',
+      };
+      
+      Object.entries(workDays).forEach(([day, isActive]) => {
+        if (isActive) {
+          workHours[day] = [{ start: workDayStart, end: workDayEnd }];
+        }
+      });
+      
       await saveAgendaConfig(token, {
         slot_duration: slotDuration,
         buffer_time: bufferTime,
         cancellation_deadline_hours: cancellationDeadline,
-        work_hours: {
-          mon: [{ start: "08:00", end: "18:00" }],
-          tue: [{ start: "08:00", end: "18:00" }],
-          wed: [{ start: "08:00", end: "18:00" }],
-          thu: [{ start: "08:00", end: "18:00" }],
-          fri: [{ start: "08:00", end: "18:00" }],
-        },
+        work_hours: workHours,
       });
       setConfigSaved(true);
       setMessage("Configuração da agenda salva com sucesso!");
@@ -336,14 +361,72 @@ export function ProviderPage({ token, onLogout }: Props) {
             </p>
           )}
           
-          <div style={{ marginTop: "12px", padding: "12px", background: "#f3f4f6", borderRadius: "6px" }}>
-            <h3 style={{ margin: "0 0 8px 0", fontSize: "14px" }}>Horário de Trabalho Padrão:</h3>
-            <p style={{ margin: 0, fontSize: "13px", color: "#666" }}>
-              Segunda a Sexta: 08:00 às 18:00
-            </p>
-            <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#999", fontStyle: "italic" }}>
-              * Integração com Google Calendar será implementada em breve
-            </p>
+          <div style={{ marginTop: "16px", padding: "12px", background: "#f3f4f6", borderRadius: "6px" }}>
+            <h3 style={{ margin: "0 0 12px 0", fontSize: "14px" }}>⏰ Horário de Trabalho</h3>
+            
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <span style={{ fontSize: "13px", fontWeight: 500 }}>Hora de Início:</span>
+                <input 
+                  type="time" 
+                  value={workDayStart}
+                  onChange={(e) => setWorkDayStart(e.target.value)}
+                  style={{ padding: "8px", borderRadius: "4px", border: "1px solid #d1d5db" }}
+                />
+              </label>
+              
+              <label style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <span style={{ fontSize: "13px", fontWeight: 500 }}>Hora de Término:</span>
+                <input 
+                  type="time" 
+                  value={workDayEnd}
+                  onChange={(e) => setWorkDayEnd(e.target.value)}
+                  style={{ padding: "8px", borderRadius: "4px", border: "1px solid #d1d5db" }}
+                />
+              </label>
+            </div>
+            
+            <div style={{ marginBottom: "8px" }}>
+              <span style={{ fontSize: "13px", fontWeight: 500, display: "block", marginBottom: "8px" }}>Dias da Semana:</span>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "8px" }}>
+                {[
+                  { key: 'mon', label: 'Seg' },
+                  { key: 'tue', label: 'Ter' },
+                  { key: 'wed', label: 'Qua' },
+                  { key: 'thu', label: 'Qui' },
+                  { key: 'fri', label: 'Sex' },
+                  { key: 'sat', label: 'Sáb' },
+                  { key: 'sun', label: 'Dom' },
+                ].map((day) => (
+                  <label 
+                    key={day.key}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "4px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={workDays[day.key as keyof typeof workDays]}
+                      onChange={(e) => setWorkDays({ ...workDays, [day.key]: e.target.checked })}
+                      style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                    />
+                    <span style={{ fontSize: "12px", color: "#666" }}>{day.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            
+            <div style={{ marginTop: "12px", padding: "8px", background: "#dbeafe", borderRadius: "4px" }}>
+              <p style={{ margin: 0, fontSize: "12px", color: "#1e40af" }}>
+                <strong>Resumo:</strong> {Object.entries(workDays).filter(([_, active]) => active).length > 0 
+                  ? `Trabalha ${Object.entries(workDays).filter(([_, active]) => active).length} dias por semana, das ${workDayStart} às ${workDayEnd}`
+                  : "Nenhum dia selecionado"}
+              </p>
+            </div>
           </div>
         </div>
       </section>
