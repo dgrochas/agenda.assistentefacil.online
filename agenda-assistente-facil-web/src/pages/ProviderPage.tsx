@@ -348,109 +348,120 @@ export function ProviderPage({ token, onLogout }: Props) {
         </div>
       </section>
       
-      <section className="card">
-        <h2>📅 Calendário de Agendamentos</h2>
-        <p style={{ margin: "12px 0", fontSize: "14px", color: "#666" }}>
-          Selecione um período no calendário para criar um evento (bloqueio ou agendamento)
-        </p>
-        <div style={{ height: "600px" }}>
-          <Calendar
-            localizer={localizer}
-            events={calendarEvents}
-            startAccessor="start"
-            endAccessor="end"
-            view={currentView}
-            onView={(view) => setCurrentView(view)}
-            style={{ height: "100%" }}
-            culture="pt-BR"
-            step={30}
-            timeslots={2}
-            defaultView="month"
-            views={["month", "week", "day", "agenda"]}
-            eventPropGetter={(event) => ({
-              style: getEventStyle(event),
-            })}
-            onSelectSlot={handleSelectSlot}
-            onSelectEvent={handleSelectEvent}
-            selectable
-            messages={{
-              date: "Data",
-              time: "Hora",
-              event: "Evento",
-              allDay: "Dia inteiro",
-              week: "Semana",
-              work_week: "Semana útil",
-              day: "Dia",
-              month: "Mês",
-              previous: "Anterior",
-              next: "Próximo",
-              yesterday: "Ontem",
-              tomorrow: "Amanhã",
-              today: "Hoje",
-              agenda: "Agenda",
-              noEventsInRange: "Nenhum agendamento neste período.",
-              showMore: (total: number) => `+${total} mais`,
-            }}
-          />
-        </div>
-        <div style={{ display: "flex", gap: "16px", marginTop: "12px", fontSize: "13px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <div style={{ width: "16px", height: "16px", background: "#2563eb", borderRadius: "4px" }} />
-            <span>Agendado</span>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "24px", alignItems: "start" }}>
+        <section className="card">
+          <h2>📅 Calendário de Agendamentos</h2>
+          <p style={{ margin: "12px 0", fontSize: "14px", color: "#666" }}>
+            Selecione um período no calendário para criar um evento (bloqueio ou agendamento)
+          </p>
+          <div style={{ height: "600px" }}>
+            <Calendar
+              localizer={localizer}
+              events={calendarEvents}
+              startAccessor="start"
+              endAccessor="end"
+              view={currentView}
+              onView={(view) => setCurrentView(view)}
+              style={{ height: "100%" }}
+              culture="pt-BR"
+              step={30}
+              timeslots={2}
+              defaultView="month"
+              views={["month", "week", "day", "agenda"]}
+              eventPropGetter={(event) => ({
+                style: getEventStyle(event),
+              })}
+              onSelectSlot={handleSelectSlot}
+              onSelectEvent={handleSelectEvent}
+              selectable
+              messages={{
+                date: "Data",
+                time: "Hora",
+                event: "Evento",
+                allDay: "Dia inteiro",
+                week: "Semana",
+                work_week: "Semana útil",
+                day: "Dia",
+                month: "Mês",
+                previous: "Anterior",
+                next: "Próximo",
+                yesterday: "Ontem",
+                tomorrow: "Amanhã",
+                today: "Hoje",
+                agenda: "Agenda",
+                noEventsInRange: "Nenhum agendamento neste período.",
+                showMore: (total: number) => `+${total} mais`,
+              }}
+            />
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <div style={{ width: "16px", height: "16px", background: "#dc2626", borderRadius: "4px" }} />
-            <span>Cancelado</span>
+          <div style={{ display: "flex", gap: "16px", marginTop: "12px", fontSize: "13px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <div style={{ width: "16px", height: "16px", background: "#2563eb", borderRadius: "4px" }} />
+              <span>Agendado</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <div style={{ width: "16px", height: "16px", background: "#dc2626", borderRadius: "4px" }} />
+              <span>Cancelado</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <div style={{ width: "16px", height: "16px", background: "#16a34a", borderRadius: "4px" }} />
+              <span>Realizado</span>
+            </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <div style={{ width: "16px", height: "16px", background: "#16a34a", borderRadius: "4px" }} />
-            <span>Realizado</span>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="card">
-        <h2>📋 Lista de Próximos Agendamentos ({scheduledAppointments.length})</h2>
-        
-        {scheduledAppointments.length === 0 ? (
-          <p style={{ color: "#666", fontStyle: "italic" }}>Nenhum agendamento futuro.</p>
-        ) : (
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {scheduledAppointments.map((a) => (
-              <li 
-                key={a.id} 
-                style={{ 
-                  padding: "12px", 
-                  borderBottom: "1px solid #e5e7eb",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <strong>
-                    {new Date(a.start_time).toLocaleDateString()} às {" "}
-                    {new Date(a.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </strong>
-                  <span style={{ 
-                    marginLeft: "8px", 
-                    padding: "2px 8px", 
-                    borderRadius: "4px", 
-                    background: getStatusColor(a.status), 
-                    color: "white",
-                    fontSize: "12px"
-                  }}>
-                    {getStatusLabel(a.status)}
-                  </span>
-                </div>
-                <div style={{ fontSize: "12px", color: "#666" }}>
-                  Paciente: {a.patient_id}
-                </div>
-              </li>
-            ))}
-          </ul>
+        {scheduledAppointments.length > 0 && (
+          <section 
+            className="card" 
+            style={{ 
+              minWidth: "300px", 
+              maxWidth: "400px",
+              alignSelf: "start",
+              maxHeight: "600px",
+              overflowY: "auto"
+            }}
+          >
+            <h3 style={{ margin: "0 0 16px 0", fontSize: "16px" }}>📋 Próximos Agendamentos ({scheduledAppointments.length})</h3>
+            
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {scheduledAppointments.map((a) => (
+                <li 
+                  key={a.id} 
+                  style={{ 
+                    padding: "12px", 
+                    borderBottom: "1px solid #e5e7eb",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <strong style={{ fontSize: "14px" }}>
+                      {new Date(a.start_time).toLocaleDateString('pt-BR')}
+                    </strong>
+                    <span style={{ 
+                      padding: "2px 8px", 
+                      borderRadius: "4px", 
+                      background: getStatusColor(a.status), 
+                      color: "white",
+                      fontSize: "11px",
+                      fontWeight: "bold"
+                    }}>
+                      {getStatusLabel(a.status)}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "13px", color: "#666" }}>
+                    ⏰ {new Date(a.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                  <div style={{ fontSize: "13px", color: "#374151", fontWeight: "500" }}>
+                    👤 Paciente: {a.patient_id}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
-      </section>
+      </div>
       
       {otherAppointments.length > 0 && (
         <section className="card">
