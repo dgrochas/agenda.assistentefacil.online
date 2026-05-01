@@ -58,15 +58,39 @@ class ConfigAgenda(Base):
     cancellation_deadline_hours: Mapped[int] = mapped_column(Integer, default=24)
 
 
+class AppointmentType(str, Enum):
+    PATIENT_APPOINTMENT = "patient_appointment"
+    PERSONAL_BLOCK = "personal_block"
+
+
 class Appointment(Base):
     __tablename__ = "appointment"
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
     professional_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("userprofessional.id"), index=True)
-    patient_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("userpatient.id"), index=True)
+    patient_id: Mapped[Optional[UUID]] = mapped_column(Uuid(as_uuid=True), ForeignKey("userpatient.id"), index=True, nullable=True)
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status: Mapped[AppointmentStatus] = mapped_column(
         SAEnum(AppointmentStatus), default=AppointmentStatus.SCHEDULED
     )
+    appointment_type: Mapped[AppointmentType] = mapped_column(
+        SAEnum(AppointmentType), default=AppointmentType.PATIENT_APPOINTMENT
+    )
+    title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     external_event_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class EventType(Base):
+    __tablename__ = "eventtype"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    professional_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("userprofessional.id"), unique=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
+    duration_minutes: Mapped[int] = mapped_column(Integer, default=30)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)  # Hex color

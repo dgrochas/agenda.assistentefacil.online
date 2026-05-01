@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.entities import Appointment, AppointmentStatus
+from app.models.entities import Appointment, AppointmentStatus, AppointmentType
 
 
 class AppointmentRepository:
@@ -26,6 +26,7 @@ class AppointmentRepository:
             .where(Appointment.professional_id == professional_id)
             .where(Appointment.start_time < end)
             .where(Appointment.end_time > start)
+            .where(Appointment.status == AppointmentStatus.SCHEDULED)
         )
         return list(session.execute(stmt).scalars().all())
 
@@ -101,3 +102,22 @@ class AppointmentRepository:
             .where(Appointment.status == AppointmentStatus.SCHEDULED)
         )
         return session.execute(stmt).scalar_one_or_none()
+
+    def list_by_professional_and_type(
+        self, session: Session, professional_id: UUID, appointment_type: AppointmentType
+    ) -> list[Appointment]:
+        stmt = (
+            select(Appointment)
+            .where(Appointment.professional_id == professional_id)
+            .where(Appointment.appointment_type == appointment_type)
+            .order_by(Appointment.start_time.desc())
+        )
+        return list(session.execute(stmt).scalars().all())
+
+    def delete(self, session: Session, appointment_id: UUID) -> bool:
+        entity = self.get_by_id(session, appointment_id)
+        if entity:
+            session.delete(entity)
+            session.commit()
+            return True
+        return False

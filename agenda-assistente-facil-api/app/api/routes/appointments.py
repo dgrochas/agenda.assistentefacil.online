@@ -5,11 +5,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db_session, require_role, subject_uuid
-from app.models.entities import Appointment, AppointmentStatus, UserRole
+from app.models.entities import Appointment, AppointmentStatus, AppointmentType, UserRole
 from app.repositories.config_agenda import ConfigAgendaRepository
 from app.repositories.appointments import AppointmentRepository
 from app.repositories.users import UserRepository
-from app.schemas.appointment import AppointmentCreateIn, AppointmentOut, AppointmentRescheduleIn
+from app.schemas.appointment import (
+    AppointmentCreateIn,
+    AppointmentOut,
+    AppointmentRescheduleIn,
+    EventTypeCreateIn,
+    EventTypeUpdateIn,
+    EventTypeOut,
+)
 from app.services.availability import calculate_available_slots
 from app.services.google_calendar import (
     cancel_google_calendar_event,
@@ -18,11 +25,14 @@ from app.services.google_calendar import (
     google_event_exists,
     update_google_calendar_event,
 )
+from app.repositories.event_types import EventTypeRepository
+from app.models.entities import EventType
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
 repo = AppointmentRepository()
 user_repo = UserRepository()
 config_repo = ConfigAgendaRepository()
+event_type_repo = EventTypeRepository()
 
 
 @router.post("", response_model=AppointmentOut, status_code=201)
@@ -65,6 +75,95 @@ async def create_appointment(
         patient_id=patient_id,
         start_time=payload.start_time,
         end_time=payload.end_time,
+        appointment_type=payload.appointment_type or AppointmentType.PATIENT_APPOINTMENT,
+        title=payload.title,
+        description=payload.description,
+    )
+    created = repo.create(session, entity)
+    external_event_id = await create_google_calendar_event(professional, created, patient.email)
+    if external_event_id:
+        created.external_event_id = external_event_id
+        session.add(created)
+        session.commit()
+        session.refresh(created)
+    return AppointmentOut.model_validate(created, from_attributes=True)
+
+
+@router.post("/personal-block", response_model=AppointmentOut, status_code=201)
+async def create_personal_block(
+    payload: AppointmentCreateIn,
+    session: Session = Depends(get_db_session),
+    current_user=Depends(require_role(UserRole.PROVIDER)),
+):
+    """Criar bloqueio pessoal na agenda do profissional"""
+    provider_id = subject_uuid(current_user)
+    professional = user_repo.get_professional_by_id(session, provider_id)
+    if not professional:
+        raise HTTPException(status_code=404, detail="Profissional nao encontrado.")
+    if payload.end_time <= payload.start_time:
+        raise HTTPException(status_code=400, detail="Intervalo de horario invalido.")
+
+    has_conflict = repo.has_overlapping_scheduled(
+        session=session,
+        professional_id=provider_id,
+        start=payload.start_time,
+        end=payload.end_time,
+    )
+    if has_conflict:
+        raise HTTPException(status_code=409, detail="Horario conflita com outro agendamento.")
+
+    entity = Appointment(
+        professional_id=provider_id,
+        patient_id=None,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        appointment_type=AppointmentType.PERSONAL_BLOCK,
+        title=payload.title or "Bloqueio Pessoal",
+        description=payload.description,
+    )
+    created = repo.create(session, entity)
+    return AppointmentOut.model_validate(created, from_attributes=True)
+
+
+@router.post("/for-patient", response_model=AppointmentOut, status_code=201)
+async def create_appointment_for_patient(
+    payload: AppointmentCreateIn,
+    session: Session = Depends(get_db_session),
+    current_user=Depends(require_role(UserRole.PROVIDER)),
+):
+    """Profissional cria agendamento para um paciente"""
+    provider_id = subject_uuid(current_user)
+    professional = user_repo.get_professional_by_id(session, provider_id)
+    if not professional:
+        raise HTTPException(status_code=404, detail="Profissional nao encontrado.")
+    
+    if not payload.patient_id:
+        raise HTTPException(status_code=400, detail="ID do paciente é obrigatório.")
+    
+    patient = user_repo.get_patient_by_id(session, payload.patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Paciente nao encontrado.")
+    
+    if payload.end_time <= payload.start_time:
+        raise HTTPException(status_code=400, detail="Intervalo de horario invalido.")
+
+    has_conflict = repo.has_overlapping_scheduled(
+        session=session,
+        professional_id=provider_id,
+        start=payload.start_time,
+        end=payload.end_time,
+    )
+    if has_conflict:
+        raise HTTPException(status_code=409, detail="Horario conflita com outro agendamento.")
+
+    entity = Appointment(
+        professional_id=provider_id,
+        patient_id=payload.patient_id,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        appointment_type=AppointmentType.PATIENT_APPOINTMENT,
+        title=payload.title,
+        description=payload.description,
     )
     created = repo.create(session, entity)
     external_event_id = await create_google_calendar_event(professional, created, patient.email)
@@ -217,3 +316,94 @@ async def reconcile_provider_calendar(
         "checked": checked,
         "canceled_locally": canceled_locally,
     }
+
+
+# ==================== EVENT TYPES (TIPOS DE AGENDAMENTO) ====================
+
+@router.get("/event-types", response_model=list[EventTypeOut])
+def list_event_types(
+    session: Session = Depends(get_db_session),
+    current_user=Depends(require_role(UserRole.PROVIDER)),
+):
+    """Listar todos os tipos de evento do profissional"""
+    provider_id = subject_uuid(current_user)
+    items = event_type_repo.list_by_professional(session, provider_id)
+    return [EventTypeOut.model_validate(x, from_attributes=True) for x in items]
+
+
+@router.get("/event-types/active", response_model=list[EventTypeOut])
+def list_active_event_types(
+    session: Session = Depends(get_db_session),
+    current_user=Depends(require_role(UserRole.PROVIDER)),
+):
+    """Listar apenas tipos de evento ativos"""
+    provider_id = subject_uuid(current_user)
+    items = event_type_repo.list_active_by_professional(session, provider_id)
+    return [EventTypeOut.model_validate(x, from_attributes=True) for x in items]
+
+
+@router.post("/event-types", response_model=EventTypeOut, status_code=201)
+def create_event_type(
+    payload: EventTypeCreateIn,
+    session: Session = Depends(get_db_session),
+    current_user=Depends(require_role(UserRole.PROVIDER)),
+):
+    """Criar novo tipo de agendamento"""
+    provider_id = subject_uuid(current_user)
+    entity = EventType(
+        professional_id=provider_id,
+        title=payload.title,
+        description=payload.description,
+        duration_minutes=payload.duration_minutes,
+        color=payload.color,
+    )
+    created = event_type_repo.create(session, entity)
+    return EventTypeOut.model_validate(created, from_attributes=True)
+
+
+@router.put("/event-types/{event_type_id}", response_model=EventTypeOut)
+def update_event_type(
+    event_type_id: UUID,
+    payload: EventTypeUpdateIn,
+    session: Session = Depends(get_db_session),
+    current_user=Depends(require_role(UserRole.PROVIDER)),
+):
+    """Atualizar tipo de agendamento"""
+    provider_id = subject_uuid(current_user)
+    entity = event_type_repo.get_by_id(session, event_type_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Tipo de evento nao encontrado.")
+    if entity.professional_id != provider_id:
+        raise HTTPException(status_code=403, detail="Sem permissao para editar este tipo de evento.")
+
+    if payload.title is not None:
+        entity.title = payload.title
+    if payload.description is not None:
+        entity.description = payload.description
+    if payload.duration_minutes is not None:
+        entity.duration_minutes = payload.duration_minutes
+    if payload.color is not None:
+        entity.color = payload.color
+    if payload.is_active is not None:
+        entity.is_active = payload.is_active
+
+    updated = event_type_repo.update(session, entity)
+    return EventTypeOut.model_validate(updated, from_attributes=True)
+
+
+@router.delete("/event-types/{event_type_id}", status_code=204)
+def delete_event_type(
+    event_type_id: UUID,
+    session: Session = Depends(get_db_session),
+    current_user=Depends(require_role(UserRole.PROVIDER)),
+):
+    """Excluir tipo de agendamento"""
+    provider_id = subject_uuid(current_user)
+    entity = event_type_repo.get_by_id(session, event_type_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Tipo de evento nao encontrado.")
+    if entity.professional_id != provider_id:
+        raise HTTPException(status_code=403, detail="Sem permissao para excluir este tipo de evento.")
+
+    event_type_repo.delete(session, event_type_id)
+    return None
