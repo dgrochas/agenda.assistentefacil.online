@@ -327,6 +327,39 @@ export function ProviderPage({ token, onLogout }: Props) {
       
       <section className="card">
         <h2>📅 Calendário de Agendamentos</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px" }}>
+          <p style={{ margin: 0, fontSize: "14px", color: "#666" }}>
+            Selecione um horário no calendário para criar um evento
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedSlot({
+                start: new Date(),
+                end: new Date(new Date().getTime() + 60 * 60 * 1000),
+              });
+              setShowCreateModal(true);
+              setCreateMode("block");
+              setAppointmentTitle("");
+              setAppointmentDescription("");
+            }}
+            style={{
+              background: "#2563eb",
+              color: "white",
+              border: "none",
+              padding: "10px 20px",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <span>+</span>
+            <span>Criar Evento</span>
+          </button>
+        </div>
         <div style={{ height: "600px", marginTop: "12px" }}>
           <Calendar
             localizer={localizer}
@@ -465,6 +498,182 @@ export function ProviderPage({ token, onLogout }: Props) {
             ))}
           </ul>
         </section>
+      )}
+      
+      {/* Modal de Criar Evento */}
+      {showCreateModal && selectedSlot && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }}>
+          <div style={{
+            background: "white",
+            padding: "24px",
+            borderRadius: "8px",
+            width: "100%",
+            maxWidth: "500px",
+            maxHeight: "90vh",
+            overflow: "auto",
+          }}>
+            <h3 style={{ margin: "0 0 16px 0" }}>
+              {createMode === "block" ? "🔒 Criar Bloqueio Pessoal" : "📅 Agendar para Paciente"}
+            </h3>
+            
+            <div style={{ marginBottom: "16px" }}>
+              <p style={{ margin: "0 0 8px 0", fontSize: "14px", color: "#666" }}>
+                Horário selecionado:
+              </p>
+              <p style={{ margin: 0, fontWeight: "bold" }}>
+                {selectedSlot.start.toLocaleDateString()} das {" "}
+                {selectedSlot.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {" "}
+                às {selectedSlot.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+            
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>
+                Tipo de Evento:
+              </label>
+              <div style={{ display: "flex", gap: "12px" }}>
+                <button
+                  type="button"
+                  onClick={() => setCreateMode("block")}
+                  style={{
+                    flex: 1,
+                    padding: "12px",
+                    border: createMode === "block" ? "2px solid #2563eb" : "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    background: createMode === "block" ? "#eff6ff" : "white",
+                    cursor: "pointer",
+                    fontWeight: createMode === "block" ? "bold" : "normal",
+                  }}
+                >
+                  🔒 Bloqueio Pessoal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreateMode("patient")}
+                  style={{
+                    flex: 1,
+                    padding: "12px",
+                    border: createMode === "patient" ? "2px solid #2563eb" : "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    background: createMode === "patient" ? "#eff6ff" : "white",
+                    cursor: "pointer",
+                    fontWeight: createMode === "patient" ? "bold" : "normal",
+                  }}
+                >
+                  📅 Paciente
+                </button>
+              </div>
+            </div>
+            
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>
+                Título:
+              </label>
+              <input
+                type="text"
+                value={appointmentTitle}
+                onChange={(e) => setAppointmentTitle(e.target.value)}
+                placeholder={createMode === "block" ? "Ex: Almoço, Reunião..." : "Ex: Consulta de Rotina"}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                }}
+              />
+            </div>
+            
+            {createMode === "patient" && (
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>
+                  E-mail do Paciente:
+                </label>
+                <input
+                  type="email"
+                  value={patientEmail}
+                  onChange={(e) => setPatientEmail(e.target.value)}
+                  placeholder="paciente@exemplo.com"
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                  }}
+                />
+              </div>
+            )}
+            
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>
+                Descrição (opcional):
+              </label>
+              <textarea
+                value={appointmentDescription}
+                onChange={(e) => setAppointmentDescription(e.target.value)}
+                placeholder="Adicione detalhes sobre este evento..."
+                rows={3}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  resize: "vertical",
+                }}
+              />
+            </div>
+            
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setSelectedSlot(null);
+                  setAppointmentTitle("");
+                  setAppointmentDescription("");
+                  setPatientEmail("");
+                }}
+                style={{
+                  padding: "10px 20px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  background: "white",
+                  cursor: "pointer",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateAppointment}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  borderRadius: "6px",
+                  background: "#2563eb",
+                  color: "white",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                {createMode === "block" ? "Criar Bloqueio" : "Agendar Paciente"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       
       <section className="card" style={{ background: "#fef3c7", borderLeft: "4px solid #f59e0b" }}>

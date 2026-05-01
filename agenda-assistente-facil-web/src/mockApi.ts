@@ -9,6 +9,7 @@ const mockAppointments: Appointment[] = [
     start_time: new Date(Date.now() + 86400000).toISOString(), // amanhã
     end_time: new Date(Date.now() + 86400000 + 1800000).toISOString(),
     status: "scheduled",
+    appointment_type: "patient_appointment",
   },
   {
     id: "2",
@@ -17,6 +18,7 @@ const mockAppointments: Appointment[] = [
     start_time: new Date(Date.now() + 172800000).toISOString(), // depois de amanhã
     end_time: new Date(Date.now() + 172800000 + 1800000).toISOString(),
     status: "scheduled",
+    appointment_type: "patient_appointment",
   },
   {
     id: "3",
@@ -25,6 +27,7 @@ const mockAppointments: Appointment[] = [
     start_time: new Date(Date.now() - 86400000).toISOString(), // ontem
     end_time: new Date(Date.now() - 86400000 + 1800000).toISOString(),
     status: "completed",
+    appointment_type: "patient_appointment",
   },
 ];
 
@@ -102,6 +105,7 @@ export async function mockCreateAppointment(
     start_time: payload.start_time,
     end_time: payload.end_time,
     status: "scheduled",
+    appointment_type: "patient_appointment",
   };
   mockAppointments.push(newAppointment);
   return newAppointment;
