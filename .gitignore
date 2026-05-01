@@ -1,5 +1,4 @@
-(doc_review.md is just a markdown document, no build artifacts, dependencies, or temp files in the changes - so no ignores needed)
-
-```gitignore
-
-```
+# Documentation files
+DOCUMENTACAO_COMPLETA.md
+GUIA_IMPLEMENTACAO_CALENDLY.md
+INDICE.md
